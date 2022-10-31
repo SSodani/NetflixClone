@@ -13,6 +13,10 @@
 //why translatesAutoresizingMaskIntoConstraints set to false
 //what is tint colour
 //need to understand how the caching is done
+//how to have size that fits all screen:  layout.itemSize = CGSize(width: UIScreen.main.bounds.width / 3 - 10, height: 200)
+//layout.minimumInteritemSpacing = 0
+//.fragmentsAllowed in jsonserialization means
+//button.layer.masksToBounds means
 
 import UIKit
 
@@ -25,6 +29,10 @@ enum Sections:Int {
 }
 
 class HomeViewController: UIViewController {
+    
+    private var randomTrendingMovie: Title?
+    
+    private var headerView:HeroHeaderUIView?
 
     let sectionTitles:[String] = ["Trending Movies","Trending T.V.","Popular", "Upcoming Movies", "Top Rated"]
     
@@ -41,14 +49,32 @@ class HomeViewController: UIViewController {
         
         homeFeedTable.delegate = self
         homeFeedTable.dataSource = self
-        
+    
+         
         configureNavBar()
         
-        homeFeedTable.tableHeaderView = HeroHeaderUIView.init(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 450))
+        headerView = HeroHeaderUIView.init(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 450))
+        homeFeedTable.tableHeaderView = headerView
+       configureHeroHeaderView()
         
     }
     
-    
+    private func configureHeroHeaderView() {
+        APICaller.shared.getTrendingMoview {[weak self] results in
+            switch results {
+            case .failure(let error):
+                print(error.localizedDescription)
+                
+            case .success(let titles):
+                let selectedTitles = titles.randomElement()
+                
+                self?.randomTrendingMovie = selectedTitles
+                
+                let titleName = selectedTitles?.original_title ?? ""
+                self?.headerView?.configure(with: TitleViewModel(titleName: titleName, posterURL: selectedTitles?.poster_path ?? ""))
+            }
+        }
+    }
     
     private func configureNavBar() {
         var image = UIImage(named: "netflix_logo")
@@ -90,6 +116,9 @@ extension HomeViewController : UITableViewDelegate, UITableViewDataSource {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: CollectionViewTableViewCell.identifier, for: indexPath) as? CollectionViewTableViewCell else {
             return UITableViewCell()
         }
+        
+        cell.delegate = self
+        
         switch indexPath.section {
         case Sections.TrendingMovies.rawValue:
             APICaller.shared.getTrendingMoview { result in
@@ -171,4 +200,14 @@ extension HomeViewController : UITableViewDelegate, UITableViewDataSource {
         
         navigationController?.navigationBar.transform = CGAffineTransform.init(translationX: 0, y: min(0, -offset))
     }
+}
+
+extension HomeViewController:CollectionViewTableViewCellDelegate {
+    func collectionViewTableViewCellDidTapCell(_ cell: CollectionViewTableViewCell, viewModel: TitlePreViewModel) {
+        DispatchQueue.main.async {[weak self] in 
+            let vc = TitlePreviewViewController()
+            vc.configure(with: viewModel)
+            self?.navigationController?.pushViewController(vc, animated: true)
+        }
+        }
 }
